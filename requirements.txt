@@ -1,2 +1,8 @@
 flask
-pysqlite
+flask-sqlalchemy
+flask-wtf # forms
+sqlalchemy-migrate
+
+# flask-whooshalchemy # for search
+# flask-babel # translation
+

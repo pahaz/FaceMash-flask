@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
 {% block body %}
-        <h1 style="text-align: center; margin-bottom: 60px; font-weight: bold;"> FaceMash </h1>
+        <h1 style="text-align: center; margin-bottom: 60px; font-weight: bold; "> FaceMash </h1>
+        <h2 style="text-align: right; margin-bottom: 60px; font-weight: bold; "><a href="/top">TOP 10</a></h2>
 
         <div class="row">
             {% if user1 and user2 %}
@@ -10,7 +11,7 @@
                     <form action="/vote" method="POST">
                         <input type="hidden" name="win_id" value="{{ user1.id }}"/>
                         <input type="hidden" name="lose_id" value="{{ user2.id }}"/>
-                        <button type="submit" style="padding: 0"><img src="{{ user1.photo }}"></button>
+                        <button type="submit" style="padding: 0; width: 300px; height: 300px"><img src="{{ user1.photo }}"></button>
                     </form>
                 </div>
                 <div class="col-xs-2" style="font-size: 20px; text-align: center;">
@@ -20,14 +21,14 @@
                     <form action="/vote" method="POST">
                         <input type="hidden" name="win_id" value="{{ user2.id }}"/>
                         <input type="hidden" name="lose_id" value="{{ user1.id }}"/>
-                        <button type="submit" style="padding: 0"><img src="{{ user2.photo }}"></button>
+                        <button type="submit" style="padding: 0; width: 300px; height: 300px"><img src="{{ user2.photo }}"></button>
                     </form>
                 </div>
             {% else %}
-                <h2 style="text-align: center;"><a href="/test">create test data</a></h2>
+
+                <h1 style="text-align: center;" margin-bottom: 60px; font-weight: bold;>Иницализация базы данных</h>
+                <h2 style="text-align: center;"><a href="/test">Поехали!</a></h2>
             {% endif %}
 
         </div>
-
-
 {% endblock %}
