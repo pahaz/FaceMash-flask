@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block body %}
+        <h1 style="text-align: center; margin-bottom: 60px; font-weight: bold;"> FaceMash </h1>
+
+        <div class="row">
+            
+            {% for i in range(n) %}
+                <h1>{{i}}. </h1><img src="{{ tops[i].photo }}">
+            {% endfor %}
+
+        </div>
+
+
+{% endblock %}

@@ -1,4 +1,5 @@
 *.pyc
 venv
-flaskr.db
+f_mash.app.db
+f_mash.log.txt
 .idea
