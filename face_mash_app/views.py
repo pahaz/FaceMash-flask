@@ -6,6 +6,7 @@ from face_mash_app import app, db
 # from forms import LoginForm, EditForm
 from models import User, Vote
 from datetime import datetime
+from models import USER_MAN, USER_WOMAN
 
 
 @app.route('/')
@@ -87,9 +88,14 @@ def add_test():
     user = User("https://pp.vk.me/c418719/v418719276/8452/173yVrN1-FE.jpg")
     db.session.add(user)
 
-    with open("photos.txt") as file:
+    with open("male_photo.txt") as file:
         for photo in file:
-            user = User(photo)
+            user = User(photo, USER_MAN)
+            db.session.add(user)
+
+    with open("female_photo.txt") as file:
+        for photo in file:
+            user = User(photo, USER_WOMAN)
             db.session.add(user)
 
     db.session.commit()
