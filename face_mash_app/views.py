@@ -1,27 +1,65 @@
-import random
+#!/usr/bin/env python
+# -*- coding: cp1251 -*-
+import random, math, re
 from flask import render_template, flash, redirect, session, url_for, request, g
 # from flask.ext.login import login_user, logout_user, current_user, login_required
 # from app import app, db, lm, oid
 from face_mash_app import app, db
-# from forms import LoginForm, EditForm
-from models import User, Vote
+# from forms import LoginForm, EditForm, constants
+from models import User, Vote, IpAddress, USER_MAN, USER_WOMAN
 from datetime import datetime
-from models import USER_MAN, USER_WOMAN
+import requests as r
+
+from flask import jsonify
+
+@app.route("/get_my_ip", methods=["GET"])
+def get_my_ip():
+    return jsonify({'ip': request.remote_addr}), 200
 
 
 @app.route('/')
 def index():
-    # cur = db.engine.execute('select id, photo from user order by elo desc')
-    users = User.query.all()
+
+    def _find(lst, el):
+        for i in range(len(lst)):
+            if el == lst[i].id:
+                return i
+
+    users = User.query.order_by(User.elo).all()
     count_users = len(users)
+
     if count_users:
-        u1 = random.randint(0, count_users - 1)
-        # u1_neighs is [u1-eps ; u1+eps] C [0; count_users]
-        epsilon = count_users ** (1 / 2)
-        u1_neighs = users[max(0, u1 - epsilon):max(0, u1)] + users[min(u1 + 1, count_users):min(u1 + 1 + epsilon,
-                                                                                                count_users)]
-        u2 = random.randint(0, len(u1_neighs) - 1)
-        return render_template('index.html', user1=users[u1], user2=u1_neighs[u2])
+        votes_list = Vote.query.filter_by(ip=request.remote_addr).all()
+        # Использованные id для этого IP
+        used_ids = {vote.win_id for vote in votes_list} | \
+            {vote.lose_id for vote in votes_list}
+        # Неиспользованные id для этого IP
+        good_ids = set(xrange(1, count_users)) - used_ids
+
+        #print(used_ids)
+
+        if len(good_ids) < 3:
+            print "TIME TO DROP ids for this IP"
+
+        u1 = random.choice(list(good_ids))
+
+        # Эпсилон-окрестность (выколотая) из близких по рейтингу user-ов к u1
+        epsilon = int(math.log(count_users, 2))
+        eps_okrestnost = (  # Левая полуокрестность + Правая полуокрестность
+            set(users[max(0, _find(users, u1) - epsilon):max(0, _find(users, u1))]) | 
+            set(users[min(_find(users, u1) + 1, count_users):min(_find(users, u1) + 1 + epsilon, count_users)])
+        )
+        not_used_eps_okrestnost = eps_okrestnost & good_ids
+
+        # Если в окрестности не осталось неиспользованных, зарандомь
+        if len(not_used_eps_okrestnost) == 0:
+            u2 = random.choice(list(good_ids - {u1}))
+        else:
+            u2 = random.choice(list(not_used_eps_okrestnost))
+
+        # Найти User-obj по id
+        u1, u2 = User.query.get(u1), User.query.get(u2)
+        return render_template('index.html', user1=u1, user2=u2)
     return render_template('index.html')
 
 
@@ -43,12 +81,33 @@ def elo(Wa, Ra, Rb, times):
 
 @app.route('/vote', methods=["POST"])
 def vote():
-    win_id = request.form["win_id"]
-    win = User.query.get(win_id)
-    win_elo, win_times = win.elo, win.times
 
+    ipaddr = IpAddress.query.get(request.remote_addr)
+    if not ipaddr:
+        ipaddr = IpAddress(request)
+        db.session.add(ipaddr)
+        db.session.commit()
+
+    if not ipaddr.correct:
+        print "INCORRECT IP " + request.remote_addr
+        return redirect('/')
+
+    votes_list = Vote.query.filter_by(ip=request.remote_addr).all()
+    # Использованные id для этого IP
+    used_ids = {vote.win_id for vote in votes_list} | \
+        {vote.lose_id for vote in votes_list}
+
+    win_id = request.form["win_id"]
     lose_id = request.form["lose_id"]
+    
+    if (int(win_id) in used_ids) or (int(lose_id) in used_ids):
+        return redirect('/anti-bot')
+
+    win = User.query.get(win_id)
     lose = User.query.get(lose_id)
+    if (not win) or (not lose):  # Id out of range
+        return redirect('/')
+    win_elo, win_times = win.elo, win.times
     lose_elo, lose_times = lose.elo, lose.times
 
     #print "WIN Id%s, rate=%s, %s times" % (win_id, win_elo, win_times)
@@ -62,6 +121,9 @@ def vote():
 
     lose.elo = lose_elo
     lose.times += 1
+
+    vote = Vote(request, win_id, lose_id)
+    db.session.add(vote)
 
     db.session.commit()
     #print "WIN new rate=%f" % (win_elo)
@@ -83,20 +145,24 @@ def top():
 
 @app.route('/test')
 def add_test():
-    user = User("https://pp.vk.me/c311931/v311931047/7260/4NUmSFHBBcU.jpg")
-    db.session.add(user)
-    user = User("https://pp.vk.me/c418719/v418719276/8452/173yVrN1-FE.jpg")
+    user = User(1, "https://pp.vk.me/c311931/v311931047/7260/4NUmSFHBBcU.jpg")
     db.session.add(user)
 
-    with open("male_photo.txt") as file:
-        for photo in file:
-            user = User(photo, USER_MAN)
+    with open("data\\male_photo.txt") as file:
+        for item in file:
+            item = item.split()
+            user = User(int(item[0]), item[1][:-1] if item[1][-1] == '\n' else item[1], USER_MAN)
             db.session.add(user)
 
-    with open("female_photo.txt") as file:
-        for photo in file:
-            user = User(photo, USER_WOMAN)
+    with open("data\\female_photo.txt") as file:
+        for item in file:
+            item = item.split()
+            user = User(int(item[0]), item[1][:-1] if item[1][-1] == '\n' else item[1], USER_WOMAN)
             db.session.add(user)
 
     db.session.commit()
     return redirect('/')
+
+@app.route('/anti-bot')
+def antibot():
+    return render_template('fuck_you_bot.html', ip=request.remote_addr)
